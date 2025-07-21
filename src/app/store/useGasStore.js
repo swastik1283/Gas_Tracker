@@ -1,22 +1,14 @@
 import { create } from 'zustand';
 
-const useGasStore = create((set) => ({
-  mode: 'live', // 'live' | 'simulation'
+const supportedChains = ['ethereum', 'polygon', 'arbitrum'];
+
+const useGasStore = create((set, get) => ({
+  // Core state
+  mode: 'live',
   selectedchain: 'ethereum',
   ethUsdPrice: null,
 
-  setEthUsdPrice: (price) =>
-    set(() => ({
-      ethUsdPrice: price,
-    })),
-
-  setselectedchain: (chain) =>
-    set(() => ({
-      selectedchain: ['ethereum', 'polygon', 'arbitrum'].includes(chain)
-        ? chain
-        : 'ethereum',
-    })),
-
+  // Chain-specific state
   gasdata: {
     ethereum: null,
     polygon: null,
@@ -35,6 +27,22 @@ const useGasStore = create((set) => ({
     arbitrum: [],
   },
 
+  // Wallet simulation
+  wallet: {
+    balanceEth: 1.0,
+    balanceUsd: null,
+    gasUsed: null,
+  },
+
+  // ========= Setters & Updaters =========
+
+  setethUsdPrice: (price) => set({ ethUsdPrice: price }),
+
+  setselectedchain: (chain) =>
+    set({
+      selectedchain: supportedChains.includes(chain) ? chain : 'ethereum',
+    }),
+
   updateGas: (chain, data) =>
     set((state) => ({
       gasdata: {
@@ -47,7 +55,7 @@ const useGasStore = create((set) => ({
     set((state) => ({
       candles: {
         ...state.candles,
-        [chain]: [...(state.candles[chain] || []), candle],
+        [chain]: [...state.candles[chain], candle],
       },
     })),
 
@@ -55,7 +63,7 @@ const useGasStore = create((set) => ({
     set((state) => ({
       priceBuffer: {
         ...state.priceBuffer,
-        [chain]: [...(state.priceBuffer[chain] || []), price],
+        [chain]: [...state.priceBuffer[chain], price],
       },
     })),
 
@@ -67,7 +75,61 @@ const useGasStore = create((set) => ({
       },
     })),
 
-  setMode: (mode) => set(() => ({ mode })),
+  updateWalletBalance: (ethAmount) =>
+    set((state) => {
+      const newBalance = state.wallet.balanceEth - ethAmount;
+      return {
+        wallet: {
+          ...state.wallet,
+          balanceEth: newBalance < 0 ? 0 : newBalance,
+        },
+      };
+    }),
+
+  setGasUsed: (gasUsed) =>
+    set((state) => ({
+      wallet: {
+        ...state.wallet,
+        gasUsed,
+      },
+    })),
+
+  setMode: (mode) => set({ mode }),
+
+  // ========= Utility =========
+
+  clearAllState: () =>
+    set({
+      mode: 'live',
+      selectedchain: 'ethereum',
+      ethUsdPrice: null,
+      gasdata: {
+        ethereum: null,
+        polygon: null,
+        arbitrum: null,
+      },
+      candles: {
+        ethereum: [],
+        polygon: [],
+        arbitrum: [],
+      },
+      priceBuffer: {
+        ethereum: [],
+        polygon: [],
+        arbitrum: [],
+      },
+      wallet: {
+        balanceEth: 1.0,
+        balanceUsd: null,
+        gasUsed: null,
+      },
+    }),
+
+  getUsdBalance: () => {
+    const price = get().ethUsdPrice || 0;
+    const balance = get().wallet.balanceEth;
+    return balance * price;
+  },
 }));
 
 export default useGasStore;

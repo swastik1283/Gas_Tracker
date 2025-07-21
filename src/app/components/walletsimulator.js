@@ -1,50 +1,55 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import useGasStore from "../store/useGasStore.js";
+import React, { useState } from 'react';
+import useGasStore from '../store/useGasStore.js';
 
 const Walletsimulator = () => {
-  const [inputValue, setInputValue] = useState("");
-  const [selectedChain, setSelectedChain] = useState("");
+  const [inputValue, setInputValue] = useState('');
+  const [selectedChain, setSelectedChain] = useState('');
   const [calculatedCost, setCalculatedCost] = useState(null);
 
   const gasData = useGasStore((state) => state.gasdata);
-  const ethUsdPrice = useGasStore((state) => state.ethUsdPrice); // ETH to USD
+  const ethUsdPriceRaw = useGasStore((state) => state.ethUsdPrice);
 
-  const calculateCost = () => {
-    if (!selectedChain || !inputValue || !gasData[selectedChain]) {
-      setCalculatedCost(null);
-      return;
-    }
+  const ethUsd = (() => {
+    if (!ethUsdPriceRaw) return 0;
+    if (typeof ethUsdPriceRaw === 'bigint') return Number(ethUsdPriceRaw) / 1e18;
+    if (typeof ethUsdPriceRaw === 'string') return parseFloat(ethUsdPriceRaw);
+    return Number(ethUsdPriceRaw);
+  })();
 
-    const gasPriceWei = gasData[selectedChain].gasPrice;
-    const gasUsed = Number(inputValue);
-    const price = Number(gasPriceWei);
+const calculateCost = () => {
+  if (!selectedChain || !inputValue || !gasData[selectedChain]) {
+    setCalculatedCost(null);
+    return;
+  }
 
-    if (!price || !gasUsed) {
-      setCalculatedCost(null);
-      return;
-    }
+  const gasUsed = BigInt(inputValue);
+  const gasPriceWei = BigInt(gasData[selectedChain].gasPrice);
 
-    const costEth = (gasUsed * price) / 1e18;
-    const costUsd = ethUsdPrice * costEth;
+  const costWei = gasUsed * gasPriceWei;
+  const costEth = Number(costWei) / 1e18;
+  const costUsd = costEth * ethUsd;
 
-    setCalculatedCost(
-      `Estimated: ${costEth.toFixed(6)} ETH (~$${costUsd.toFixed(2)} USD)`
-    );
-  };
+  setCalculatedCost({
+    eth: costEth.toFixed(6),
+    usd: costUsd.toFixed(2),
+  });
+};
+
+
 
   return (
-    <div className="p-4 w-full max-w-md mx-auto">
+    <div className="p-4 w-full max-w-md mx-auto bg-white shadow-md rounded-lg">
       <h2 className="text-2xl font-bold mb-4 text-center">⛽ Wallet Gas Simulator</h2>
 
       {calculatedCost && (
-        <div className="text-lg font-semibold text-center text-green-500 mb-4">
-          {calculatedCost}
+        <div className="text-lg font-semibold text-center text-green-600 mb-4">
+          Estimated: {calculatedCost.eth} ETH (~${calculatedCost.usd} USD)
         </div>
       )}
 
-      <label className="block mb-2 text-gray-700">Select Chain</label>
+      <label className="block mb-2 font-medium text-gray-700">Select Chain</label>
       <select
         value={selectedChain}
         onChange={(e) => setSelectedChain(e.target.value)}
@@ -56,7 +61,7 @@ const Walletsimulator = () => {
         <option value="arbitrum">Arbitrum</option>
       </select>
 
-      <label className="block mb-2 text-gray-700">Gas Used</label>
+      <label className="block mb-2 font-medium text-gray-700">Gas Used</label>
       <input
         type="number"
         className="border p-2 w-full rounded mb-4"
